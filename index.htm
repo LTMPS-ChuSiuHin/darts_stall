@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>藍循飛標攤位 - 模擬器</title>
+<style>
+    :root {
+        --bg-color: #0f172a;
+        --panel-bg: #1e293b;
+        --text-color: #e2e8f0;
+        --accent-blue: #3b82f6;
+        --accent-blue-hover: #2563eb;
+        --accent-red: #ef4444;
+        --accent-red-hover: #dc2626;
+        --hit-color: #10b981;
+        --hit-color-hover: #059669;
+        --miss-color: #f43f5e;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow-x: hidden;
+    }
+
+    /* 主標題樣式 */
+    .main-title {
+        color: white;
+        text-shadow: 0 0 15px rgba(59, 130, 246, 0.8), 0 0 5px rgba(255, 255, 255, 0.5);
+        margin: 10px 0 20px 0;
+        text-align: center;
+        font-size: 2.2rem;
+        font-weight: 900;
+        letter-spacing: 3px;
+    }
+
+    /* 頂部主選單 */
+    .top-nav {
+        width: 100%;
+        max-width: 900px;
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        background: var(--panel-bg);
+        padding: 10px;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        border: 1px solid #334155;
+        box-sizing: border-box;
+        transition: max-width 0.3s;
+    }
+    .nav-btn {
+        flex: 1;
+        padding: 12px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        background: transparent;
+        color: #94a3b8;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .nav-btn:hover { background: rgba(59, 130, 246, 0.1); color: white; }
+    .nav-btn.active {
+        background: var(--accent-blue);
+        color: white;
+        box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);
+    }
+
+    /* 左右兩欄排版容器 */
+    .main-wrapper {
+        display: flex;
+        flex-direction: row;
+        gap: 25px;
+        align-items: flex-start;
+        width: 100%;
+        max-width: 900px;
+        justify-content: center;
+        flex-wrap: wrap;
+        transition: max-width 0.3s;
+    }
+
+    .left-col { flex: 1; width: 100%; min-width: 300px; max-width: 350px; display: flex; flex-direction: column; gap: 20px;}
+    .right-col {
+        flex: 1; width: 100%; min-width: 300px; max-width: 500px;
+        display: flex; flex-direction: column; gap: 20px;
+        transition: max-width 0.3s;
+    }
+
+    @media (max-width: 768px) {
+        .left-col { order: 2; }
+        .right-col { order: 1; }
+    }
+
+    /* 面板通用設定 */
+    .panel {
+        width: 100%;
+        background: var(--panel-bg);
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        box-sizing: border-box;
+        border: 1px solid #334155;
+    }
+    .panel h3 { margin-top: 0; margin-bottom: 20px; font-size: 1.1rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* 共用標靶樣式 */
+    .dartboard-base {
+        width: 200px; height: 200px; border-radius: 50%; position: relative;
+        box-shadow: 0 0 25px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.1) inset;
+        border: 6px solid #0f172a; transition: background 0.3s;
+    }
+    .dartboard-base::after {
+        content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 20px; height: 20px; background: #fbbf24; border-radius: 50%; box-shadow: 0 0 10px rgba(251, 191, 36, 0.8); z-index: 2;
+    }
+    .board-label {
+        position: absolute; top: 50%; transform: translateY(-50%); color: white;
+        font-weight: 900; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+        pointer-events: none; z-index: 3;
+    }
+    .label-left { left: 15%; }
+    .label-right { right: 15%; }
+
+    /* --- 右側: 測試模式樣式 --- */
+    .view-section { display: none; flex-direction: column; gap: 20px; }
+    .view-section.active { display: flex; }
+
+    .game-container {
+        position: relative; width: 100%; height: 420px;
+        background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        border: 2px solid #334155; border-radius: 16px;
+        overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 15px rgba(59, 130, 246, 0.2);
+        touch-action: none;
+    }
+    
+    #dartboard-test-wrapper {
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        display: flex; justify-content: center; align-items: center;
+        height: 280px; width: 100%;
+    }
+    .hit-pop { transform: scale(1.05); }
+    
+    #dart {
+        position: absolute; bottom: 25px; left: 50%; font-size: 50px; line-height: 1;
+        transform: translate(-50%, 0) scale(1); transform-origin: bottom center;
+        user-select: none; z-index: 10; filter: drop-shadow(0 10px 8px rgba(0,0,0,0.6));
+    }
+    #msg-overlay {
+        position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+        font-size: 28px; font-weight: 900; color: #fff; text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        opacity: 0; pointer-events: none; z-index: 20; width: 100%; text-align: center; letter-spacing: 2px;
+    }
+    #swipe-zone {
+        position: absolute; bottom: 0; width: 100%; height: 100px;
+        background: linear-gradient(to top, rgba(59, 130, 246, 0.15), transparent); z-index: 5;
+        display: flex; justify-content: center; align-items: flex-end; padding-bottom: 15px;
+        color: #94a3b8; font-weight: bold; letter-spacing: 1px; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+    .particle { position: absolute; border-radius: 50%; pointer-events: none; z-index: 15; }
+
+    /* --- 右側: 老闆模式專屬樣式 --- */
+    .boss-vision-container {
+        width: 100%; height: 280px; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        border: 2px solid #334155; border-radius: 16px; overflow: hidden;
+        display: flex; justify-content: center; align-items: center; position: relative;
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+    #dartboard-boss-wrapper {
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .boss-vision-tag {
+        position: absolute; top: 10px; left: 10px; font-size: 0.8rem;
+        background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 8px; color: #94a3b8;
+    }
+
+    /* 按鈕與統計樣式 */
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+        flex: 1 1 45%; padding: 12px 10px; background-color: var(--accent-blue);
+        color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold;
+        cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    button:hover { transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0,0,0,0.4); }
+    button:active { transform: translateY(1px); }
+    button:disabled { background-color: #475569; cursor: not-allowed; transform: none; box-shadow: none; }
+    
+    .btn-throw { background-color: var(--hit-color); flex-basis: 100%; padding: 15px 10px; font-size: 1.15rem; margin-bottom: 5px; }
+    .btn-throw:hover { background-color: var(--hit-color-hover); }
+    .btn-reset { background-color: var(--accent-red); flex-basis: 100%; margin-top: 5px; }
+    .btn-reset:hover { background-color: var(--accent-red-hover); }
+    
+    .stats {
+        display: flex; justify-content: space-between; font-size: 1.2rem;
+        font-weight: bold; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #334155;
+    }
+    .stats span { color: #fbbf24; text-shadow: 0 0 5px rgba(251, 191, 36, 0.4); }
+
+    /* --- 左側: 設定滑動條 --- */
+    .btn-toggle-params { background-color: #334155; width: 100%; margin-bottom: 15px; border: 1px solid #475569; color: #cbd5e1; }
+    .btn-toggle-params:hover { background-color: #475569; }
+
+    .slider-group { display: flex; align-items: center; margin-bottom: 20px; }
+    .slider-group label { flex: 0 0 100px; font-size: 0.95rem; color: #cbd5e1; }
+    .slider-group input[type="range"] { flex: 1; margin: 0 10px; accent-color: var(--accent-blue); }
+    .slider-group .val-display { flex: 0 0 45px; text-align: right; font-weight: bold; font-size: 1rem; color: #60a5fa; }
+    
+    .btn-reset-settings { background-color: transparent; border: 1px solid #64748b; color: #cbd5e1; flex-basis: 100%; margin-top: 15px; padding: 10px; box-shadow: none; width: 100%; }
+    .btn-reset-settings:hover { background-color: #334155; border-color: #94a3b8; color: white; box-shadow: none; }
+    
+    .ev-container { margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    .ev-toggle { color: #cbd5e1; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .ev-toggle input { accent-color: var(--accent-blue); cursor: pointer; width: 16px; height: 16px; }
+    .ev-value { display: none; color: #fbbf24; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px rgba(251, 191, 36, 0.4); }
+
+    /* --- 老闆儀表板 --- */
+    .boss-dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+    .boss-card { background: #334155; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #475569; }
+    .boss-card .title { font-size: 0.9rem; color: #cbd5e1; margin-bottom: 5px; }
+    .boss-card .value { font-size: 1.6rem; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    .text-profit { color: #10b981 !important; text-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+    .text-loss { color: #f43f5e !important; text-shadow: 0 0 10px rgba(244, 63, 94, 0.4) !important; }
+    .btn-simulate-boss { background-color: #8b5cf6; width: 100%; padding: 15px; font-size: 1.2rem; margin-top: 15px; }
+    .btn-simulate-boss:hover { background-color: #7c3aed; }
+    .boss-logs { margin-top: 15px; font-size: 0.9rem; color: #94a3b8; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #1e293b; text-align: center; line-height: 1.5;}
+
+    /* 上載區塊樣式 */
+    .upload-section {
+        display: none; padding: 20px; background: #0f172a; 
+        border: 1px solid #3b82f6; border-radius: 16px; text-align: center;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5), inset 0 0 15px rgba(59, 130, 246, 0.1);
+    }
+    .upload-section h4 { margin: 0 0 15px 0; color: #e2e8f0; font-size: 1.1rem; }
+    .upload-inputs { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+    .input-student {
+        padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #1e293b;
+        color: white; width: 80%; font-size: 1.1rem; text-align: center;
+    }
+    .btn-upload { background: #10b981; width: 100%; padding: 15px; font-size: 1.1rem; }
+    .btn-upload:hover { background: #059669; }
+    .upload-msg { margin-top: 12px; font-size: 0.95rem; font-weight: bold; min-height: 20px; }
+
+    /* --- 排行榜樣式 --- */
+    .table-responsive { overflow-x: auto; width: 100%; border-radius: 8px; border: 1px solid #334155; }
+    .leaderboard-table { width: 100%; border-collapse: collapse; min-width: 800px; font-size: 0.9rem; }
+    .leaderboard-table th, .leaderboard-table td { padding: 12px 10px; text-align: center; border-bottom: 1px solid #334155; white-space: nowrap; }
+    .leaderboard-table th { background-color: #0f172a; color: #94a3b8; position: sticky; top: 0; z-index: 10; font-weight: bold; }
+    .leaderboard-table tr:hover { background-color: rgba(59, 130, 246, 0.1); }
+    .rank-1 { color: #fbbf24; font-weight: 900; font-size: 1.2rem; text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+    .rank-2 { color: #e2e8f0; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px rgba(226, 232, 240, 0.5); }
+    .rank-3 { color: #d97706; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px rgba(217, 119, 6, 0.5); }
+    .profit-pos { color: #10b981; font-weight: bold; }
+    .profit-neg { color: #f43f5e; font-weight: bold; }
+    
+    /* 排行榜套用與上鎖按鈕 */
+    .btn-apply {
+        background-color: var(--accent-blue);
+        color: white; border: none; padding: 6px 12px; border-radius: 6px;
+        cursor: pointer; font-size: 0.85rem; font-weight: bold;
+        transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.3); flex: none; width: auto;
+    }
+    .btn-apply:hover { background-color: var(--accent-blue-hover); transform: translateY(-1px); }
+    
+    .btn-lock {
+        background-color: var(--accent-red); width: auto; padding: 6px 15px; font-size: 0.9rem; margin: 0;
+    }
+    .btn-lock:hover { background-color: var(--accent-red-hover); }
+
+</style>
+</head>
+<body>
+
+<h1 class="main-title">🎯 藍循飛標攤位</h1>
+
+<div class="top-nav" id="top-nav">
+    <button class="nav-btn active" id="nav-test" onclick="switchTab('test')">🎯 測試模式</button>
+    <button class="nav-btn" id="nav-boss" onclick="switchTab('boss')">💼 老闆模式</button>
+    <button class="nav-btn" id="nav-leaderboard" onclick="switchTab('leaderboard')">🏆 排行榜</button>
+</div>
+
+<div class="main-wrapper" id="main-wrapper">
+
+    <div class="left-col" id="left-col">
+        
+        <div id="left-panel-test" style="display: block;">
+            <div class="panel">
+                <h3>⚙️ 測試攤位參數</h3>
+                <button id="btn-toggle-test" class="btn-toggle-params" onclick="toggleParams('test')">👁️ 顯示參數</button>
+                
+                <div id="params-content-test" style="display: none;">
+                    <div class="slider-group">
+                        <label>命中機率</label>
+                        <input type="range" id="test-hitrate" min="10" max="100" step="5" value="50">
+                        <div class="val-display"><span id="val-test-hitrate">50</span>%</div>
+                    </div>
+                    <div class="slider-group">
+                        <label>左側佔比</label>
+                        <input type="range" id="test-ratio" min="10" max="90" value="50">
+                        <div class="val-display"><span id="val-test-ratio">50</span>%</div>
+                    </div>
+                    <div class="slider-group">
+                        <label>左側分數</label>
+                        <input type="range" id="test-score-left" min="10" max="200" step="10" value="80">
+                        <div class="val-display" id="val-test-score-left">80</div>
+                    </div>
+                    <div class="slider-group">
+                        <label>右側分數</label>
+                        <input type="range" id="test-score-right" min="10" max="200" step="10" value="20">
+                        <div class="val-display" id="val-test-score-right">20</div>
+                    </div>
+                    <div class="slider-group" style="margin-bottom: 0;">
+                        <label>每次收費</label>
+                        <input type="range" id="test-cost" min="10" max="200" step="10" value="40">
+                        <div class="val-display">$<span id="val-test-cost">40</span></div>
+                    </div>
+                    
+                    <button onclick="resetSettings('test')" class="btn-reset-settings">↺ 重置參數為預設值</button>
+
+                    <div class="ev-container">
+                        <label class="ev-toggle">
+                            <input type="checkbox" id="toggle-ev-test"> 顯示得分期望值
+                        </label>
+                        <div id="ev-display-test" class="ev-value">25</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="left-panel-boss" style="display: none;">
+            <div class="panel">
+                <h3>💼 正式營業參數</h3>
+                <button id="btn-toggle-boss" class="btn-toggle-params" onclick="toggleParams('boss')">👁️ 顯示參數</button>
+                
+                <div id="params-content-boss" style="display: none;">
+                    <div class="slider-group">
+                        <label>命中機率</label>
+                        <input type="range" id="boss-hitrate" min="10" max="100" step="5" value="50">
+                        <div class="val-display"><span id="val-boss-hitrate">50</span>%</div>
+                    </div>
+                    <div class="slider-group">
+                        <label>左側佔比</label>
+                        <input type="range" id="boss-ratio" min="10" max="90" value="50">
+                        <div class="val-display"><span id="val-boss-ratio">50</span>%</div>
+                    </div>
+                    <div class="slider-group">
+                        <label>左側分數</label>
+                        <input type="range" id="boss-score-left" min="10" max="200" step="10" value="80">
+                        <div class="val-display" id="val-boss-score-left">80</div>
+                    </div>
+                    <div class="slider-group">
+                        <label>右側分數</label>
+                        <input type="range" id="boss-score-right" min="10" max="200" step="10" value="20">
+                        <div class="val-display" id="val-boss-score-right">20</div>
+                    </div>
+                    <div class="slider-group" style="margin-bottom: 0;">
+                        <label>每次收費</label>
+                        <input type="range" id="boss-cost" min="10" max="200" step="10" value="40">
+                        <div class="val-display">$<span id="val-boss-cost">40</span></div>
+                    </div>
+                    
+                    <button onclick="resetSettings('boss')" class="btn-reset-settings">↺ 重置參數為預設值</button>
+
+                    <div class="ev-container">
+                        <label class="ev-toggle">
+                            <input type="checkbox" id="toggle-ev-boss"> 顯示得分期望值
+                        </label>
+                        <div id="ev-display-boss" class="ev-value">25</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="upload-section" class="upload-section">
+                <h4>📤 提交最終營業成績</h4>
+                <div class="upload-inputs">
+                    <input type="number" id="input-student-id" class="input-student" min="0" max="40" placeholder="學號 (0-40)">
+                    <button id="btn-upload" class="btn-upload" onclick="window.submitToFirebase()">上載記錄</button>
+                </div>
+                <div id="upload-msg" class="upload-msg"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-col" id="right-col">
+        
+        <div id="view-test" class="view-section active">
+            <div class="panel">
+                <div class="stats">
+                    <div>總收費: $<span id="display-cost">0</span></div>
+                    <div>獲得分數: <span id="display-score">0</span></div>
+                </div>
+                <div class="btn-group">
+                    <button onclick="triggerManualThrow()" class="btn-throw">🎯 點擊投擲</button>
+                    <button onclick="simulate(10)">模擬 10 次</button>
+                    <button onclick="simulate(100)">模擬 100 次</button>
+                    <button onclick="resetGame()" class="btn-reset">↺ 歸零測試數據</button>
+                </div>
+            </div>
+
+            <div class="game-container" id="game-area">
+                <div id="dartboard-test-wrapper">
+                    <div id="dartboard-test" class="dartboard-base">
+                        <div class="board-label label-left" id="label-left-test">80</div>
+                        <div class="board-label label-right" id="label-right-test">20</div>
+                    </div>
+                </div>
+                <div id="msg-overlay">命中!</div>
+                <div id="dart">📍</div>
+                <div id="swipe-zone">↑ 向上滑動或點擊按鈕投擲</div>
+            </div>
+        </div>
+
+        <div id="view-boss" class="view-section">
+            <div class="boss-vision-container">
+                <div class="boss-vision-tag">👁️ 顧客眼中的攤位難度</div>
+                <div id="dartboard-boss-wrapper">
+                    <div id="dartboard-boss" class="dartboard-base">
+                        <div class="board-label label-left" id="label-left-boss">80</div>
+                        <div class="board-label label-right" id="label-right-boss">20</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>📊 今日營運模擬</h3>
+                <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 0;">
+                    系統會依據「期望值」與「標靶視覺難度」自動模擬客流。
+                </p>
+                
+                <button onclick="runBossSimulation()" class="btn-simulate-boss">💰 開始今日營業</button>
+
+                <div class="boss-dashboard">
+                    <div class="boss-card">
+                        <div class="title">遊客總人數</div>
+                        <div class="value" id="boss-customers">---</div>
+                    </div>
+                    <div class="boss-card">
+                        <div class="title">總收費金額</div>
+                        <div class="value" id="boss-revenue">---</div>
+                    </div>
+                    <div class="boss-card">
+                        <div class="title">總發放分數</div>
+                        <div class="value" id="boss-payout">---</div>
+                    </div>
+                    <div class="boss-card">
+                        <div class="title">今日淨利潤</div>
+                        <div class="value" id="boss-profit">---</div>
+                    </div>
+                </div>
+                
+                <div class="boss-logs" id="boss-logs">
+                    請點擊上方按鈕開始營業
+                </div>
+            </div>
+        </div>
+
+        <div id="view-leaderboard" class="view-section" style="width: 100%;">
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0;">🏆 營業成績排行榜</h3>
+                    <button onclick="window.lockLeaderboardCloud()" class="btn-lock">🔒 重新上鎖</button>
+                </div>
+                
+                <button onclick="window.loadLeaderboard()" class="btn-simulate-boss" style="margin-top: 0; margin-bottom: 15px; background-color: #f59e0b;">🔄 載入最新排名</button>
+                
+                <div class="table-responsive">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>學號</th>
+                                <th>命中率</th>
+                                <th>左佔比</th>
+                                <th>左/右分</th>
+                                <th>收費</th>
+                                <th>期望值</th>
+                                <th>客流</th>
+                                <th>淨利潤</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <tr><td colspan="10" style="text-align:center; padding: 20px; color: #94a3b8;">請點擊上方按鈕載入資料</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    let isBossUnlocked = false;
+    // 移除了本機的 isLeaderboardUnlocked 變數，改由 Firebase 控管
+
+    // --- 選單切換與介面顯示邏輯 ---
+    // 改為 async 函數以便等待 Firebase 檢查結果
+    async function switchTab(tabId) {
+        // 老闆模式密碼驗證 (保留於本機驗證，因為每個學生都要自己解鎖)
+        if (tabId === 'boss' && !isBossUnlocked) {
+            const pwd = prompt("🔒 請輸入老闆密碼以進入營業模式：");
+            if (pwd === "6a" || pwd === "6A") {
+                isBossUnlocked = true;
+                alert("✅ 密碼正確，歡迎老闆！");
+            } else {
+                alert("❌ 密碼錯誤，無法進入！");
+                return; 
+            }
+        }
+
+        // 排行榜向 Firebase 檢查是否開放
+        if (tabId === 'leaderboard') {
+            if (window.checkLeaderboardStatus) {
+                const canEnter = await window.checkLeaderboardStatus();
+                if (!canEnter) return; // 如果被擋下 (未開放且密碼錯/取消)，就終止切換
+            } else {
+                alert("資料庫載入中，請稍後重試...");
+                return;
+            }
+        }
+
+        // 清除所有標籤與視圖的 active
+        ['test', 'boss', 'leaderboard'].forEach(id => {
+            document.getElementById(`nav-${id}`).classList.remove('active');
+            document.getElementById(`view-${id}`).classList.remove('active');
+        });
+
+        // 啟動點擊的標籤與視圖
+        document.getElementById(`nav-${tabId}`).classList.add('active');
+        document.getElementById(`view-${tabId}`).classList.add('active');
+        
+        // 處理左側欄顯示與動態寬度調整
+        const mainWrapper = document.getElementById('main-wrapper');
+        const topNav = document.getElementById('top-nav');
+        const rightCol = document.getElementById('right-col');
+        const leftCol = document.getElementById('left-col');
+        const leftPanelTest = document.getElementById('left-panel-test');
+        const leftPanelBoss = document.getElementById('left-panel-boss');
+
+        if (tabId === 'leaderboard') {
+            leftCol.style.display = 'none'; 
+            mainWrapper.style.maxWidth = '1200px';  // 加寬主版面
+            topNav.style.maxWidth = '1200px';       // 加寬頂部選單
+            rightCol.style.maxWidth = '100%';       // 右欄填滿畫面
+            if (window.loadLeaderboard) window.loadLeaderboard();
+        } else {
+            leftCol.style.display = 'flex'; 
+            mainWrapper.style.maxWidth = '900px';   // 恢復原本版面寬度
+            topNav.style.maxWidth = '900px';
+            rightCol.style.maxWidth = '500px';      // 恢復右欄寬度
+            
+            if (tabId === 'test') {
+                leftPanelTest.style.display = 'block';
+                leftPanelBoss.style.display = 'none';
+            } else if (tabId === 'boss') {
+                leftPanelTest.style.display = 'none';
+                leftPanelBoss.style.display = 'block';
+            }
+        }
+    }
+
+    // --- 將排行榜參數套用至老闆模式 ---
+    window.applyToBoss = function(hitRate, ratio, scoreL, scoreR, cost) {
+        document.getElementById('boss-hitrate').value = hitRate;
+        document.getElementById('boss-ratio').value = ratio;
+        document.getElementById('boss-score-left').value = scoreL;
+        document.getElementById('boss-score-right').value = scoreR;
+        document.getElementById('boss-cost').value = cost;
+        
+        updateBossSettings();
+        switchTab('boss');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // --- 顯示/隱藏參數邏輯 ---
+    function toggleParams(mode) {
+        const content = document.getElementById(`params-content-${mode}`);
+        const btn = document.getElementById(`btn-toggle-${mode}`);
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            btn.innerText = '🙈 隱藏參數';
+        } else {
+            content.style.display = 'none';
+            btn.innerText = '👁️ 顯示參數';
+        }
+    }
+
+    // --- EV 切換顯示邏輯 ---
+    document.getElementById('toggle-ev-test').addEventListener('change', (e) => {
+        document.getElementById('ev-display-test').style.display = e.target.checked ? 'block' : 'none';
+    });
+    document.getElementById('toggle-ev-boss').addEventListener('change', (e) => {
+        document.getElementById('ev-display-boss').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // --- 全域變數與 DOM ---
+    let totalCost = 0;
+    let totalScore = 0;
+    let isAnimating = false;
+    window.currentBossData = null; 
+
+    const dartboardTest = document.getElementById('dartboard-test');
+    const dartboardTestWrapper = document.getElementById('dartboard-test-wrapper');
+    const dartboardBoss = document.getElementById('dartboard-boss');
+    const dartboardBossWrapper = document.getElementById('dartboard-boss-wrapper');
+
+    // --- 獨立更新測試模式設定 ---
+    function updateTestSettings() {
+        const hitRate = parseInt(document.getElementById('test-hitrate').value, 10);
+        const ratio = parseInt(document.getElementById('test-ratio').value, 10);
+        const scoreL = parseInt(document.getElementById('test-score-left').value, 10);
+        const scoreR = parseInt(document.getElementById('test-score-right').value, 10);
+        const cost = parseInt(document.getElementById('test-cost').value, 10);
+
+        document.getElementById('val-test-hitrate').innerText = hitRate;
+        document.getElementById('val-test-ratio').innerText = ratio;
+        document.getElementById('val-test-score-left').innerText = scoreL;
+        document.getElementById('val-test-score-right').innerText = scoreR;
+        document.getElementById('val-test-cost').innerText = cost;
+
+        document.getElementById('label-left-test').innerText = scoreL;
+        document.getElementById('label-right-test').innerText = scoreR;
+
+        dartboardTest.style.background = `linear-gradient(to right, #e11d48 ${ratio}%, #2563eb ${ratio}%)`;
+        dartboardTestWrapper.style.transform = `scale(${hitRate / 50})`;
+
+        const expectedValue = (hitRate / 100) * ((ratio / 100) * scoreL + ((100 - ratio) / 100) * scoreR);
+        document.getElementById('ev-display-test').innerText = parseFloat(expectedValue.toFixed(2));
+    }
+
+    // --- 獨立更新老闆模式設定 ---
+    function updateBossSettings() {
+        const hitRate = parseInt(document.getElementById('boss-hitrate').value, 10);
+        const ratio = parseInt(document.getElementById('boss-ratio').value, 10);
+        const scoreL = parseInt(document.getElementById('boss-score-left').value, 10);
+        const scoreR = parseInt(document.getElementById('boss-score-right').value, 10);
+        const cost = parseInt(document.getElementById('boss-cost').value, 10);
+
+        document.getElementById('val-boss-hitrate').innerText = hitRate;
+        document.getElementById('val-boss-ratio').innerText = ratio;
+        document.getElementById('val-boss-score-left').innerText = scoreL;
+        document.getElementById('val-boss-score-right').innerText = scoreR;
+        document.getElementById('val-boss-cost').innerText = cost;
+
+        document.getElementById('label-left-boss').innerText = scoreL;
+        document.getElementById('label-right-boss').innerText = scoreR;
+
+        dartboardBoss.style.background = `linear-gradient(to right, #e11d48 ${ratio}%, #2563eb ${ratio}%)`;
+        dartboardBossWrapper.style.transform = `scale(${hitRate / 50})`;
+
+        const expectedValue = (hitRate / 100) * ((ratio / 100) * scoreL + ((100 - ratio) / 100) * scoreR);
+        document.getElementById('ev-display-boss').innerText = parseFloat(expectedValue.toFixed(2));
+    }
+
+    // 綁定事件監聽
+    ['hitrate', 'ratio', 'score-left', 'score-right', 'cost'].forEach(param => {
+        document.getElementById(`test-${param}`).addEventListener('input', updateTestSettings);
+        document.getElementById(`boss-${param}`).addEventListener('input', updateBossSettings);
+    });
+
+    // 初始化
+    updateTestSettings();
+    updateBossSettings();
+
+    // --- 獨立重置設定 ---
+    function resetSettings(mode) {
+        document.getElementById(`${mode}-hitrate`).value = 50;
+        document.getElementById(`${mode}-ratio`).value = 50;
+        document.getElementById(`${mode}-score-left`).value = 80;
+        document.getElementById(`${mode}-score-right`).value = 20;
+        document.getElementById(`${mode}-cost`).value = 40;
+        
+        if (mode === 'test') updateTestSettings();
+        else updateBossSettings();
+        
+        document.getElementById(`toggle-ev-${mode}`).checked = false;
+        document.getElementById(`ev-display-${mode}`).style.display = 'none';
+        
+        if (mode === 'test') {
+            showMessageTest("測試參數已重置", "#94a3b8", "0 0 10px #94a3b8");
+        }
+    }
+
+    // ==========================================
+    // 遊戲測試模式邏輯 (讀取 Test 參數)
+    // ==========================================
+    const displayCost = document.getElementById('display-cost');
+    const displayScore = document.getElementById('display-score');
+    const msgOverlay = document.getElementById('msg-overlay');
+    const dart = document.getElementById('dart');
+    const gameArea = document.getElementById('game-area');
+
+    function updateStatsUI() {
+        displayCost.innerText = totalCost;
+        displayScore.innerText = totalScore;
+        displayScore.style.transform = 'scale(1.2)';
+        setTimeout(() => displayScore.style.transform = 'scale(1)', 150);
+    }
+
+    function resetGame() {
+        if (isAnimating) return;
+        totalCost = 0;
+        totalScore = 0;
+        updateStatsUI();
+        showMessageTest("數據已歸零", "#3b82f6", "0 0 10px #3b82f6");
+    }
+
+    function calculateThrow() {
+        const hitRate = parseInt(document.getElementById('test-hitrate').value, 10);
+        const ratio = parseInt(document.getElementById('test-ratio').value, 10);
+        const scoreL = parseInt(document.getElementById('test-score-left').value, 10);
+        const scoreR = parseInt(document.getElementById('test-score-right').value, 10);
+        const cost = parseInt(document.getElementById('test-cost').value, 10);
+
+        totalCost += cost;
+        let result = { hit: false, area: 'miss', earned: 0 };
+
+        if (Math.random() * 100 < hitRate) {
+            result.hit = true;
+            if (Math.random() * 100 < ratio) {
+                result.area = 'left';
+                result.earned = scoreL;
+            } else {
+                result.area = 'right';
+                result.earned = scoreR;
+            }
+            totalScore += result.earned;
+        }
+        return result;
+    }
+
+    function createParticles(x, y, color) {
+        for (let i = 0; i < 12; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.background = color;
+            particle.style.left = x + 'px';
+            particle.style.top = y + 'px';
+            const size = Math.random() * 6 + 4;
+            particle.style.width = size + 'px'; particle.style.height = size + 'px';
+            const angle = Math.random() * Math.PI * 2; const distance = Math.random() * 60 + 20;
+            const tx = Math.cos(angle) * distance; const ty = Math.sin(angle) * distance;
+            gameArea.appendChild(particle);
+            const animation = particle.animate([
+                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+            ], { duration: 600 + Math.random() * 300, easing: 'cubic-bezier(0, .9, .57, 1)' });
+            animation.onfinish = () => particle.remove();
+        }
+    }
+
+    function showMessageTest(text, color, shadow = '') {
+        msgOverlay.innerText = text; msgOverlay.style.color = color;
+        msgOverlay.style.textShadow = shadow || `0 0 15px ${color}`;
+        msgOverlay.style.transition = 'opacity 0.1s, transform 0.1s'; msgOverlay.style.opacity = '1';
+        msgOverlay.style.transform = 'translate(-50%, -50%) scale(1.1)';
+        setTimeout(() => msgOverlay.style.transform = 'translate(-50%, -50%) scale(1)', 100);
+        setTimeout(() => { msgOverlay.style.transition = 'opacity 0.4s'; msgOverlay.style.opacity = '0'; }, 800);
+    }
+
+    function triggerManualThrow() {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        const result = calculateThrow();
+        dart.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+        let translateX = 0, translateY = -250; 
+        
+        if (result.hit) {
+            const jitterX = Math.random() * 60 - 30; const jitterY = Math.random() * 60 - 30; 
+            translateX = (result.area === 'left' ? -50 : 50) + jitterX; translateY += jitterY;
+        } else {
+            const angle = Math.random() * Math.PI * 2; const radius = 120 + Math.random() * 50;   
+            translateX = Math.cos(angle) * radius; translateY += Math.sin(angle) * radius;
+        }
+
+        dart.style.transform = `translate(calc(-50% + ${translateX}px), ${translateY}px) scale(0.4)`;
+
+        setTimeout(() => {
+            updateStatsUI();
+            if (result.hit) {
+                const color = result.area === 'left' ? '#f43f5e' : '#3b82f6';
+                showMessageTest(`PERFECT! +${result.earned}`, '#10b981', '0 0 15px #10b981');
+                dartboardTest.classList.add('hit-pop'); setTimeout(() => dartboardTest.classList.remove('hit-pop'), 150);
+                const targetX = gameArea.offsetWidth / 2 + translateX; const targetY = 146 + (translateY + 250); 
+                createParticles(targetX, targetY, color);
+            } else {
+                showMessageTest('MISS!', '#f43f5e', '0 0 15px #f43f5e');
+            }
+            setTimeout(() => {
+                dart.style.transition = 'none'; dart.style.transform = 'translate(-50%, 0) scale(1)'; isAnimating = false;
+            }, 600);
+        }, 400);
+    }
+
+    function simulate(times) {
+        if (isAnimating) return;
+        let hits = 0, gainedScore = 0;
+        for (let i = 0; i < times; i++) {
+            let res = calculateThrow();
+            if (res.hit) { hits++; gainedScore += res.earned; }
+        }
+        updateStatsUI();
+        showMessageTest(`命中 ${hits}/${times} 次`, '#fbbf24', '0 0 15px #fbbf24');
+    }
+
+    let startY = 0, isDragging = false;
+    function handleSwipeEnd(endY) { if (startY - endY > 40) triggerManualThrow(); }
+    gameArea.addEventListener('touchstart', e => startY = e.touches[0].clientY);
+    gameArea.addEventListener('touchend', e => handleSwipeEnd(e.changedTouches[0].clientY));
+    gameArea.addEventListener('mousedown', e => { isDragging = true; startY = e.clientY; });
+    gameArea.addEventListener('mouseup', e => { if (isDragging) { isDragging = false; handleSwipeEnd(e.clientY); } });
+    gameArea.addEventListener('mouseleave', () => isDragging = false);
+
+    // ==========================================
+    // 老闆模擬模式邏輯 (讀取 Boss 參數)
+    // ==========================================
+    function runBossSimulation() {
+        const hitRate = parseInt(document.getElementById('boss-hitrate').value, 10);
+        const ratio = parseInt(document.getElementById('boss-ratio').value, 10);
+        const scoreL = parseInt(document.getElementById('boss-score-left').value, 10);
+        const scoreR = parseInt(document.getElementById('boss-score-right').value, 10);
+        const cost = parseInt(document.getElementById('boss-cost').value, 10);
+
+        const ev = (hitRate / 100) * ((ratio / 100) * scoreL + ((100 - ratio) / 100) * scoreR);
+        let expectedCustomers = 1000;
+        const psychologicalModifier = Math.pow(hitRate / 50, 2); 
+
+        if (scoreL < cost && scoreR < cost) {
+            expectedCustomers = 0; 
+        } else if (scoreL > cost && scoreR > cost) {
+            const multiplier = 4 + (ev / cost);
+            expectedCustomers = Math.floor(1000 * multiplier * psychologicalModifier);
+        } else {
+            const baseEvRatio = 25 / 40; 
+            const currentEvRatio = ev / cost;
+            expectedCustomers = Math.floor(1000 * Math.pow(currentEvRatio / baseEvRatio, 1.5) * psychologicalModifier);
+        }
+
+        if (expectedCustomers > 0) {
+            const noise = 0.95 + (Math.random() * 0.1);
+            expectedCustomers = Math.floor(expectedCustomers * noise);
+        }
+
+        let totalRevenue = expectedCustomers * cost;
+        let totalPayout = 0;
+        let hitsL = 0, hitsR = 0, misses = 0;
+
+        for (let i = 0; i < expectedCustomers; i++) {
+            if (Math.random() * 100 < hitRate) {
+                if (Math.random() * 100 < ratio) {
+                    hitsL++; totalPayout += scoreL;
+                } else {
+                    hitsR++; totalPayout += scoreR;
+                }
+            } else {
+                misses++;
+            }
+        }
+
+        let netProfit = totalRevenue - totalPayout;
+
+        // 更新介面
+        document.getElementById('boss-customers').innerText = expectedCustomers.toLocaleString();
+        document.getElementById('boss-revenue').innerText = '$' + totalRevenue.toLocaleString();
+        document.getElementById('boss-payout').innerText = '$' + totalPayout.toLocaleString();
+        
+        const elProfit = document.getElementById('boss-profit');
+        elProfit.innerText = '$' + netProfit.toLocaleString();
+        elProfit.classList.remove('text-profit', 'text-loss');
+        if (netProfit > 0) elProfit.classList.add('text-profit');
+        else if (netProfit < 0) elProfit.classList.add('text-loss');
+
+        // 更新日誌
+        const elLogs = document.getElementById('boss-logs');
+        let logMsg = "";
+        if (expectedCustomers === 0) {
+            if (hitRate <= 20) logMsg = "❌ <b>攤位完全無人問津！</b><br>標靶小到不合理，加上給分苛刻，顧客覺得根本是騙錢的。";
+            else logMsg = "❌ <b>攤位完全無人問津！</b><br>因為所有區塊的得分都低於收費，顧客覺得不可能得益。";
+        } else if (scoreL > cost && scoreR > cost) {
+            logMsg = `🔥 <b>攤位大爆滿！</b> 大家都發現無論如何都會賺錢！`;
+            if(hitRate >= 70) logMsg += `<br>✨ 加上標靶超級大，顧客覺得閉著眼睛都能中，呼朋引伴來玩！`;
+            else if(hitRate <= 30) logMsg += `<br>⚠️ 雖然穩賺，但標靶太小讓人懷疑有詐，流失了部分客源。`;
+        } else {
+            logMsg = `📊 <b>今日營運總結</b>`;
+            if (hitRate <= 30) logMsg += `<br>⚠️ 標靶太小了，許多顧客覺得「太難中」而放棄遊玩。`;
+            else if (hitRate >= 70) logMsg += `<br>✨ 標靶夠大，顧客覺得「很容易中」而大幅增加遊玩意願！`;
+        }
+        if(expectedCustomers > 0) logMsg += `<br><br><span style="color:#64748b;">(命中左側 ${hitsL} 次 | 命中右側 ${hitsR} 次 | 未命中 ${misses} 次)</span>`;
+        elLogs.innerHTML = logMsg;
+
+        // 存入全域變數，準備上載
+        window.currentBossData = {
+            hitRate: hitRate,
+            ratio: ratio,
+            scoreLeft: scoreL,
+            scoreRight: scoreR,
+            cost: cost,
+            expectedValue: parseFloat(ev.toFixed(2)),
+            expectedCustomers: expectedCustomers,
+            netProfit: netProfit
+        };
+
+        // 顯示上載區塊
+        document.getElementById('upload-section').style.display = 'block';
+        document.getElementById('upload-msg').innerText = '';
+    }
+</script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCFG9cgnSV573EE_D-i1YyOwFwvg-GLbys",
+      authDomain: "math-learning-platform-d80c7.firebaseapp.com",
+      projectId: "math-learning-platform-d80c7",
+      storageBucket: "math-learning-platform-d80c7.firebasestorage.app",
+      messagingSenderId: "484525571730",
+      appId: "1:484525571730:web:f6c2ec959cf40c1a7cf04b",
+      measurementId: "G-S95BCB5WSM"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ==========================================
+    // 排行榜雲端鎖定/解鎖邏輯
+    // ==========================================
+    window.checkLeaderboardStatus = async function() {
+        try {
+            // 讀取 Firebase 裡的設定檔
+            const docRef = doc(db, "settings", "system");
+            const docSnap = await getDoc(docRef);
+            let isUnlocked = false;
+
+            if (docSnap.exists()) {
+                isUnlocked = docSnap.data().leaderboardUnlocked;
+            } else {
+                // 如果設定檔不存在，預設為上鎖並建立檔案
+                await setDoc(docRef, { leaderboardUnlocked: false }, { merge: true });
+            }
+
+            if (isUnlocked) {
+                return true; // 雲端已解鎖，所有人直接放行
+            } else {
+                // 雲端未解鎖，提示輸入老師密碼
+                const pwd = prompt("🔒 排行榜目前尚未開放。\n若是老師，請輸入密碼以開放給全班：");
+                if (pwd === "1234") {
+                    // 密碼正確，更新雲端狀態
+                    await setDoc(docRef, { leaderboardUnlocked: true }, { merge: true });
+                    alert("✅ 解鎖成功！現在所有學生都可以直接進入排行榜了。");
+                    return true;
+                } else if (pwd !== null) {
+                    alert("❌ 密碼錯誤，或是您不是老師。");
+                    return false;
+                }
+                return false; // 使用者按取消
+            }
+        } catch (error) {
+            console.error("檢查鎖定狀態失敗:", error);
+            alert("❌ 無法連線至資料庫，請檢查網路連線。");
+            return false;
+        }
+    };
+
+    window.lockLeaderboardCloud = async function() {
+        try {
+            // 將雲端狀態改回 false (上鎖)
+            const docRef = doc(db, "settings", "system");
+            await setDoc(docRef, { leaderboardUnlocked: false }, { merge: true });
+            alert("🔒 排行榜已為所有人重新上鎖！");
+            
+            // 強制跳回測試模式
+            document.getElementById('nav-test').click(); 
+        } catch (error) {
+            console.error("上鎖失敗:", error);
+            alert("❌ 雲端上鎖失敗，請檢查網路連線。");
+        }
+    };
+
+    // ==========================================
+    // 上載與讀取成績邏輯
+    // ==========================================
+    window.submitToFirebase = async function() {
+        const studentIdVal = document.getElementById('input-student-id').value;
+        const msgBox = document.getElementById('upload-msg');
+        const btnUpload = document.getElementById('btn-upload');
+
+        if (studentIdVal === '' || studentIdVal < 0 || studentIdVal > 40) {
+            msgBox.innerText = "❌ 請輸入有效的學號 (0-40)";
+            msgBox.style.color = "#f43f5e";
+            return;
+        }
+
+        if (!window.currentBossData) {
+            msgBox.innerText = "❌ 找不到模擬數據，請先點擊「開始今日營業」";
+            msgBox.style.color = "#f43f5e";
+            return;
+        }
+
+        const studentId = parseInt(studentIdVal, 10);
+        const docId = `student_${studentId}`;
+        const newProfit = window.currentBossData.netProfit;
+
+        btnUpload.disabled = true;
+        btnUpload.innerText = "上載中...";
+        msgBox.innerText = "連線至資料庫中...";
+        msgBox.style.color = "#60a5fa";
+
+        try {
+            const docRef = doc(db, "dart_boss_records", docId);
+            const docSnap = await getDoc(docRef);
+            let shouldUpload = true;
+
+            if (docSnap.exists()) {
+                const existingData = docSnap.data();
+                if (newProfit <= existingData.netProfit) {
+                    shouldUpload = false;
+                    msgBox.innerHTML = `⚠️ <b>上載略過</b><br>雲端已有更高的淨利紀錄 ($${existingData.netProfit.toLocaleString()})`;
+                    msgBox.style.color = "#fbbf24";
+                }
+            }
+
+            if (shouldUpload) {
+                await setDoc(docRef, {
+                    studentId: studentId,
+                    ...window.currentBossData,
+                    timestamp: serverTimestamp()
+                });
+                msgBox.innerHTML = `✅ <b>上載成功！</b><br>淨利潤: $${newProfit.toLocaleString()} 已寫入！<br><span style="font-size:0.85rem; color:#94a3b8;">去排行榜看看你的名次吧！</span>`;
+                msgBox.style.color = "#10b981";
+            }
+        } catch (error) {
+            console.error("Firebase 錯誤:", error);
+            msgBox.innerText = "❌ 上載失敗，請檢查網路連線";
+            msgBox.style.color = "#f43f5e";
+        } finally {
+            btnUpload.disabled = false;
+            btnUpload.innerText = "上載記錄";
+        }
+    };
+
+    window.loadLeaderboard = async function() {
+        const tbody = document.getElementById('leaderboard-body');
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px;">資料載入中，請稍候... ⏳</td></tr>';
+        
+        try {
+            const q = query(collection(db, "dart_boss_records"), orderBy("netProfit", "desc"));
+            const querySnapshot = await getDocs(q);
+            
+            let html = '';
+            let rank = 1;
+            
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                
+                let rankVisual = rank;
+                let rankClass = '';
+                if (rank === 1) { rankVisual = '🥇'; rankClass = 'rank-1'; }
+                else if (rank === 2) { rankVisual = '🥈'; rankClass = 'rank-2'; }
+                else if (rank === 3) { rankVisual = '🥉'; rankClass = 'rank-3'; }
+
+                const profitClass = data.netProfit >= 0 ? 'profit-pos' : 'profit-neg';
+
+                html += `<tr>
+                    <td class="${rankClass}">${rankVisual}</td>
+                    <td style="font-weight:bold; color:white;">${data.studentId}</td>
+                    <td>${data.hitRate}%</td>
+                    <td>${data.ratio}%</td>
+                    <td>${data.scoreLeft} / ${data.scoreRight}</td>
+                    <td>$${data.cost}</td>
+                    <td style="color:#60a5fa;">${data.expectedValue}</td>
+                    <td>${data.expectedCustomers.toLocaleString()}</td>
+                    <td class="${profitClass}">$${data.netProfit.toLocaleString()}</td>
+                    <td><button class="btn-apply" onclick="window.applyToBoss(${data.hitRate}, ${data.ratio}, ${data.scoreLeft}, ${data.scoreRight}, ${data.cost})">套用</button></td>
+                </tr>`;
+                rank++;
+            });
+
+            if (html === '') {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px;">目前尚無任何營業紀錄</td></tr>';
+            } else {
+                tbody.innerHTML = html;
+            }
+            
+        } catch (error) {
+            console.error("載入排行榜失敗:", error);
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px; color:#f43f5e;">載入失敗，請確認 Firebase 權限與網路連線</td></tr>';
+        }
+    };
+</script>
+</body>
+</html>
