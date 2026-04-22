@@ -430,7 +430,10 @@
             </div>
 
             <div class="panel">
-                <h3>📊 今日營運模擬</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">📊 今日營運模擬</h3>
+                    <button onclick="window.lockTabCloud('boss')" class="btn-lock">🔒 重新上鎖</button>
+                </div>
                 <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 0;">
                     系統會依據「期望值」與「標靶視覺難度」自動模擬客流。
                 </p>
@@ -466,7 +469,7 @@
             <div class="panel">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h3 style="margin: 0;">🏆 營業成績排行榜</h3>
-                    <button onclick="window.lockLeaderboardCloud()" class="btn-lock">🔒 重新上鎖</button>
+                    <button onclick="window.lockTabCloud('leaderboard')" class="btn-lock">🔒 重新上鎖</button>
                 </div>
                 
                 <button onclick="window.loadLeaderboard()" class="btn-simulate-boss" style="margin-top: 0; margin-bottom: 15px; background-color: #f59e0b;">🔄 載入最新排名</button>
@@ -500,29 +503,13 @@
 </div>
 
 <script>
-    let isBossUnlocked = false;
-    // 移除了本機的 isLeaderboardUnlocked 變數，改由 Firebase 控管
-
     // --- 選單切換與介面顯示邏輯 ---
-    // 改為 async 函數以便等待 Firebase 檢查結果
     async function switchTab(tabId) {
-        // 老闆模式密碼驗證 (保留於本機驗證，因為每個學生都要自己解鎖)
-        if (tabId === 'boss' && !isBossUnlocked) {
-            const pwd = prompt("🔒 請輸入老闆密碼以進入營業模式：");
-            if (pwd === "6a" || pwd === "6A") {
-                isBossUnlocked = true;
-                alert("✅ 密碼正確，歡迎老闆！");
-            } else {
-                alert("❌ 密碼錯誤，無法進入！");
-                return; 
-            }
-        }
-
-        // 排行榜向 Firebase 檢查是否開放
-        if (tabId === 'leaderboard') {
-            if (window.checkLeaderboardStatus) {
-                const canEnter = await window.checkLeaderboardStatus();
-                if (!canEnter) return; // 如果被擋下 (未開放且密碼錯/取消)，就終止切換
+        // 進入老闆模式或排行榜時，呼叫 Firebase 統一控管邏輯
+        if (tabId === 'boss' || tabId === 'leaderboard') {
+            if (window.checkTabStatus) {
+                const canEnter = await window.checkTabStatus(tabId);
+                if (!canEnter) return; // 被密碼擋下或取消，終止切換
             } else {
                 alert("資料庫載入中，請稍後重試...");
                 return;
@@ -549,15 +536,15 @@
 
         if (tabId === 'leaderboard') {
             leftCol.style.display = 'none'; 
-            mainWrapper.style.maxWidth = '1200px';  // 加寬主版面
-            topNav.style.maxWidth = '1200px';       // 加寬頂部選單
-            rightCol.style.maxWidth = '100%';       // 右欄填滿畫面
+            mainWrapper.style.maxWidth = '1200px';  
+            topNav.style.maxWidth = '1200px';       
+            rightCol.style.maxWidth = '100%';       
             if (window.loadLeaderboard) window.loadLeaderboard();
         } else {
             leftCol.style.display = 'flex'; 
-            mainWrapper.style.maxWidth = '900px';   // 恢復原本版面寬度
+            mainWrapper.style.maxWidth = '900px';   
             topNav.style.maxWidth = '900px';
-            rightCol.style.maxWidth = '500px';      // 恢復右欄寬度
+            rightCol.style.maxWidth = '500px';      
             
             if (tabId === 'test') {
                 leftPanelTest.style.display = 'block';
@@ -668,7 +655,6 @@
         document.getElementById(`boss-${param}`).addEventListener('input', updateBossSettings);
     });
 
-    // 初始化
     updateTestSettings();
     updateBossSettings();
 
@@ -935,57 +921,68 @@
     const db = getFirestore(app);
 
     // ==========================================
-    // 排行榜雲端鎖定/解鎖邏輯
+    // 雙模式通用：雲端解鎖邏輯 (需要密碼 1234)
     // ==========================================
-    window.checkLeaderboardStatus = async function() {
+    window.checkTabStatus = async function(tabId) {
+        const dbField = tabId === 'boss' ? 'bossUnlocked' : 'leaderboardUnlocked';
+        const tabName = tabId === 'boss' ? '老闆模式' : '排行榜';
+
         try {
-            // 讀取 Firebase 裡的設定檔
             const docRef = doc(db, "settings", "system");
             const docSnap = await getDoc(docRef);
             let isUnlocked = false;
 
-            if (docSnap.exists()) {
-                isUnlocked = docSnap.data().leaderboardUnlocked;
+            if (docSnap.exists() && docSnap.data()[dbField] !== undefined) {
+                isUnlocked = docSnap.data()[dbField];
             } else {
-                // 如果設定檔不存在，預設為上鎖並建立檔案
-                await setDoc(docRef, { leaderboardUnlocked: false }, { merge: true });
+                // 如果設定檔不存在，預設為上鎖
+                await setDoc(docRef, { [dbField]: false }, { merge: true });
             }
 
             if (isUnlocked) {
-                return true; // 雲端已解鎖，所有人直接放行
+                return true; // 雲端已解鎖，直接放行
             } else {
-                // 雲端未解鎖，提示輸入老師密碼
-                const pwd = prompt("🔒 排行榜目前尚未開放。\n若是老師，請輸入密碼以開放給全班：");
+                // 雲端未解鎖，要求密碼
+                const pwd = prompt(`🔒 【${tabName}】目前尚未開放。\n若是老師，請輸入密碼解鎖：`);
                 if (pwd === "1234") {
-                    // 密碼正確，更新雲端狀態
-                    await setDoc(docRef, { leaderboardUnlocked: true }, { merge: true });
-                    alert("✅ 解鎖成功！現在所有學生都可以直接進入排行榜了。");
+                    await setDoc(docRef, { [dbField]: true }, { merge: true });
+                    alert(`✅ 解鎖成功！現在全班都可以進入【${tabName}】了。`);
                     return true;
                 } else if (pwd !== null) {
-                    alert("❌ 密碼錯誤，或是您不是老師。");
+                    alert("❌ 密碼錯誤！");
                     return false;
                 }
                 return false; // 使用者按取消
             }
         } catch (error) {
             console.error("檢查鎖定狀態失敗:", error);
-            alert("❌ 無法連線至資料庫，請檢查網路連線。");
+            alert("❌ 無法連線至資料庫，請檢查網路。");
             return false;
         }
     };
 
-    window.lockLeaderboardCloud = async function() {
-        try {
-            // 將雲端狀態改回 false (上鎖)
-            const docRef = doc(db, "settings", "system");
-            await setDoc(docRef, { leaderboardUnlocked: false }, { merge: true });
-            alert("🔒 排行榜已為所有人重新上鎖！");
-            
-            // 強制跳回測試模式
-            document.getElementById('nav-test').click(); 
-        } catch (error) {
-            console.error("上鎖失敗:", error);
-            alert("❌ 雲端上鎖失敗，請檢查網路連線。");
+    // ==========================================
+    // 雙模式通用：雲端重新上鎖邏輯 (也需要密碼 1234)
+    // ==========================================
+    window.lockTabCloud = async function(tabId) {
+        const dbField = tabId === 'boss' ? 'bossUnlocked' : 'leaderboardUnlocked';
+        const tabName = tabId === 'boss' ? '老闆模式' : '排行榜';
+
+        const pwd = prompt(`🔒 準備將【${tabName}】重新上鎖，封鎖學生進入。\n請輸入老師密碼：`);
+        
+        if (pwd === "1234") {
+            try {
+                const docRef = doc(db, "settings", "system");
+                await setDoc(docRef, { [dbField]: false }, { merge: true });
+                alert(`🔒 【${tabName}】已重新上鎖！`);
+                // 強制跳回無須密碼的測試模式
+                document.getElementById('nav-test').click(); 
+            } catch (error) {
+                console.error("上鎖失敗:", error);
+                alert("❌ 雲端上鎖失敗，請檢查網路連線。");
+            }
+        } else if (pwd !== null) {
+            alert("❌ 密碼錯誤，無法執行上鎖！");
         }
     };
 
